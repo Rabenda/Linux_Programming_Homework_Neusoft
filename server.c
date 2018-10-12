@@ -36,12 +36,37 @@ _Noreturn void serverStart(void) {
         exit(-1);
     }
 
+    int epollFd = epoll_create1(0);
+    if (epollFd == -1) {
+        perror("epoll create failed");
+        exit(-1);
+    }
+    struct epoll_event event;
+    struct epoll_event *events;
+    event.data.fd = listenFd;
+    event.events = EPOLLIN | EPOLLET;
+    int epollControlResult = epoll_ctl(epollFd, EPOLL_CTL_ADD, listenFd, &event);
+    if (epollControlResult == -1) {
+        perror("epoll control add event failed");
+        exit(-1);
+    }
+#define MAXEVENTS 64
+    events = malloc(MAXEVENTS * sizeof (struct epoll_event));
+    if (events == NULL) {
+        perror("epoll malloc events failed");
+        exit(-1);
+    }
+
+
+
     while (true) {
-        connectionFd = accept(listenFd, (struct sockaddr*)& client, &clientLen);
-        if (connectionFd == -1) {
-            perror("socket accept failed");
-            exit(-1);
-        }
+        int epollEventCounts = epoll_wait (epollFd, events, MAXEVENTS, -1);
+
+//        connectionFd = accept(listenFd, (struct sockaddr*)& client, &clientLen);
+//        if (connectionFd == -1) {
+//            perror("socket accept failed");
+//            exit(-1);
+//        }
 
         pthread_t pthreadId;
 

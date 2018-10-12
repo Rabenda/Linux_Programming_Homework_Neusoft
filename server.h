@@ -13,6 +13,8 @@
 #include <stdbool.h>
 #include <pthread.h>
 
+#include <sys/epoll.h>
+
 void setServerStruct(struct sockaddr_in* server);
 _Noreturn void serverStart(void);
 void* processCli(void* threadArgs);
