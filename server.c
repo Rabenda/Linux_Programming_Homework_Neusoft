@@ -32,7 +32,7 @@ _Noreturn void serverStart(void) {
         perror("socket create failed");
         exit(-1);
     }
-    setNonblocking(listenFd);
+//    setNonblocking(listenFd);
 
     setsockopt(listenFd, SOL_SOCKET, SO_REUSEADDR, &socketOpt, sizeof (socketOpt));
     setServerStruct(&server);
@@ -50,41 +50,58 @@ _Noreturn void serverStart(void) {
     }
 
     printf("create listenFd successful");
-#define MAXEVENTS 64
-    int epollFd = epoll_create(MAXEVENTS);
-    if (epollFd == -1) {
-        perror("epoll create failed");
-        exit(-1);
-    }
-    struct epoll_event event;
-    struct epoll_event *events;
-    event.data.fd = listenFd;
-    event.events = EPOLLIN | EPOLLET;
-    int epollControlResult = epoll_ctl(epollFd, EPOLL_CTL_ADD, listenFd, &event);
-    if (epollControlResult == -1) {
-        perror("epoll control add event failed");
-        exit(-1);
-    }
 
-    events = malloc(MAXEVENTS * sizeof (struct epoll_event));
-    if (events == NULL) {
-        perror("epoll malloc events failed");
-        exit(-1);
-    }
-
-    printf("epoll create successful");
+    //线程分离的属性
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr,PTHREAD_CREATE_DETACHED);
 
     while (true) {
-        int epollEventCounts = epoll_wait (epollFd, events, MAXEVENTS, -1);
-
-        for (int i = 0; i < epollEventCounts; ++i) {
-            pthread_t pthreadId;
-            struct Connect* connect= malloc(sizeof (struct Connect));
-            connect->sockFd = events[i].data.fd;
-            pthread_create(&pthreadId, NULL, &processCli, connect);
-            pthread_detach(pthreadId);
+        int connectFd = accept(listenFd, NULL, NULL);
+        if (connectFd == -1) {
+            perror("socket accept failed");
+            continue;
         }
+        struct Connect* connect= malloc(sizeof (struct Connect));
+        connect->sockFd = connectFd;
+        pthread_t pthreadId;
+        pthread_create(&pthreadId, &attr, &processCli, connect);
     }
+    pthread_attr_destroy(&attr);
+
+//    int epollFd = epoll_create1(0);
+//    if (epollFd == -1) {
+//        perror("epoll create failed");
+//        exit(-1);
+//    }
+//    struct epoll_event event;
+//    struct epoll_event *events;
+//    event.data.fd = listenFd;
+//    event.events = EPOLLIN | EPOLLET | EPOLLOUT;
+//    int epollControlResult = epoll_ctl(epollFd, EPOLL_CTL_ADD, listenFd, &event);
+//    if (epollControlResult == -1) {
+//        perror("epoll control add event failed");
+//        exit(-1);
+//    }
+//#define MAXEVENTS 64
+//    events = malloc(MAXEVENTS * sizeof (struct epoll_event));
+//    if (events == NULL) {
+//        perror("epoll malloc events failed");
+//        exit(-1);
+//    }
+
+//    printf("epoll create successful");
+//    while (true) {
+//        int epollEventCounts = epoll_wait (epollFd, events, MAXEVENTS, -1);
+
+//        for (int i = 0; i < epollEventCounts; ++i) {
+//            pthread_t pthreadId;
+//            struct Connect* connect= malloc(sizeof (struct Connect));
+//            connect->sockFd = events[i].data.fd;
+//            pthread_create(&pthreadId, NULL, &processCli, connect);
+//            pthread_detach(pthreadId);
+//        }
+//    }
 }
 
 _Noreturn void* processCli(void* threadArgs) {
@@ -94,23 +111,25 @@ _Noreturn void* processCli(void* threadArgs) {
     struct Connect connect;
     memcpy(&connect, connectPtr, sizeof(struct Connect));
     free(connectPtr);
-    int connectFd = accept(connect.sockFd, (struct sockaddr*)&client, sizeof(client));
-    if (connectFd == -1) {
-        perror("epoll accept events failed");
-        pthread_exit(NULL);
-    }
+    int connectFd = connect.sockFd;
 #define BUFFSIZE 2048
     char buffer[BUFFSIZE];
 
     while (true) {
+        bzero(buffer, sizeof(buffer));
         ssize_t length = recv(connectFd, buffer, BUFFSIZE - 1, 0);
         if (length == -1)
             continue;
-        buffer[length] = '\0';
-        if (strcasecmp(buffer, "bye") == 0) {
+#define BYE "bye"
+        if (memcmp(buffer, BYE, sizeof(BYE) -1) == 0) {
             close(connectFd);
             pthread_exit(NULL);
         }
+        printf("%s length: %d\n", buffer, (int)strlen(buffer));
+        for (unsigned i = 0; i < strlen(buffer) + 1; ++i) {
+            printf("%d ", buffer[i]);
+        }
+        printf("\n");
         send(connectFd, buffer, (size_t)length, 0);
     }
 }
