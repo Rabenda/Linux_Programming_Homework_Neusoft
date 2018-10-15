@@ -20,5 +20,9 @@
 
 void setServerStruct(struct sockaddr_in* server);
 _Noreturn void serverStart(void);
-void* processCli(void* threadArgs);
+void* processNewConnection(void* threadArgs);
+
+struct Connect {
+    int sockFd;
+};
 #endif // SERVER_H

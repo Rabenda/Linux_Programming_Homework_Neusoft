@@ -3,5 +3,4 @@
 int main()
 {
     serverStart();
-    return 0;
 }

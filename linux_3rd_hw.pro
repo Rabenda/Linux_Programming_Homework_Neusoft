@@ -8,7 +8,7 @@ LIBS += -pthread
 
 SOURCES += \
         main.c \
-    server.c
+        server.c
 
 HEADERS += \
     config.h \
